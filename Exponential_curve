@@ -26,7 +26,7 @@ def convert_Z_to_alpha(Z, epsilon_2, epsilon_1=1.0):
 def generate_profile_points(epsilon_absorber, thickness, height, base_thickness, N):
     Z_absorber = convert_epsilon_to_Z(epsilon_absorber)
     y_values = np.linspace(0, height, num=N)
-    impedance_profile = exponential((1 / height) * y_values, Z_AIR, Z_absorber, length=height)
+    impedance_profile = exponential( y_values, Z_AIR, Z_absorber, length=height)
     filling_factors = convert_Z_to_alpha(impedance_profile, epsilon_absorber)
 
     
