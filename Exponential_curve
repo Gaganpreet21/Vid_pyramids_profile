@@ -1,0 +1,87 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+Z_AIR = 376.730  # Ohm
+
+
+def exponential(x, Z_left, Z_right, length=1.0):
+    if Z_left < Z_right:
+        a = (1.0 / length) * np.log(Z_right / Z_left)
+        return Z_left * np.exp(a * x)
+    elif Z_left > Z_right:
+        a = (1.0 / length) * np.log(Z_right / Z_left)
+        return -Z_right * np.exp(-a * x) + Z_left + Z_right
+
+
+def convert_epsilon_to_Z(epsilon):
+    return Z_AIR / np.sqrt(epsilon)
+
+def convert_Z_to_alpha(Z, epsilon_2, epsilon_1=1.0):
+    return np.sqrt(
+        ((Z_AIR / Z) ** 2) * (1 / (epsilon_2 - epsilon_1)) - (epsilon_1 / (epsilon_2 - epsilon_1))
+    )
+
+
+def generate_profile_points(epsilon_absorber, thickness, height, base_thickness, N):
+    Z_absorber = convert_epsilon_to_Z(epsilon_absorber)
+    y_values = np.linspace(0, height, num=N)
+    impedance_profile = exponential((1 / height) * y_values, Z_AIR, Z_absorber, length=height)
+    filling_factors = convert_Z_to_alpha(impedance_profile, epsilon_absorber)
+
+    
+    points = [(0.0, 0.0), (0.5 * thickness, 0.0), (0.5 * thickness, base_thickness)]
+    for i in range(1, N):
+        points.append((filling_factors[N-i] * thickness * 0.5, y_values[i] + base_thickness))
+        points.append((-filling_factors[i] * thickness * 0.5, y_values[N - i] + base_thickness))
+    points.append((-0.5 * thickness, base_thickness))
+    points.append((-0.5 * thickness, 0.0))
+    points.append((0.0, 0.0))
+    return y_values, impedance_profile, filling_factors, points
+
+
+def plot_all(y_values, impedance_profile, filling_factors, points):
+    plt.figure(figsize=(18, 6))
+
+    
+    plt.subplot(1, 3, 1)
+    plt.plot(y_values, impedance_profile, label='Impedance Profile')
+    plt.title('Impedance vs. Height')
+    plt.xlabel('Height (mm)')
+    plt.ylabel('Impedance (Ohms)')
+    plt.grid(True)
+    plt.legend()
+
+    
+    plt.subplot(1, 3, 2)
+    plt.plot(y_values, filling_factors, label='Filling Factor', color='red')
+    plt.title('Filling Factor vs. Height')
+    plt.xlabel('Height (mm)')
+    plt.ylabel('Filling Factor')
+    plt.grid(True)
+    plt.legend()
+
+    
+    plt.subplot(1, 3, 3)
+    x_vals, y_vals = zip(*points)
+    plt.plot(x_vals, y_vals, 'o-', label='Profile Shape')
+    plt.title('Profile Shape')
+    plt.xlabel('Width (mm)')
+    plt.ylabel('Height (mm)')
+    plt.grid(True)
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == "__main__":
+    epsilon_absorber = 5.131  # Example permittivity
+    thickness = 6.0  # Example thickness of unit cell
+    height = 9.0  # Example height of surface structures
+    base_thickness = 7.0  # Example base thickness
+    N = 36  # Example number of points
+
+    y_values, impedance_profile, filling_factors, points = generate_profile_points(epsilon_absorber, thickness, height, base_thickness, N)
+    plot_all(y_values, impedance_profile, filling_factors, points)  # Plot the calculated points and properties
+
