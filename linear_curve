@@ -1,0 +1,95 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+Z_AIR = 376.730  # Ohm
+
+def linear(x, Z_left, Z_right, length=1.0):
+    return ((Z_right - Z_left) / length) * x + Z_left
+
+def convert_epsilon_to_Z(epsilon):
+    return Z_AIR / np.sqrt(epsilon)
+
+def convert_Z_to_alpha(Z, epsilon_2, epsilon_1=1.0):
+    return np.sqrt(
+        ((Z_AIR / Z) ** 2) * (1 / (epsilon_2 - epsilon_1)) - (epsilon_1 / (epsilon_2 - epsilon_1))
+    )
+
+def generate_profile_points(epsilon_absorber, thickness, height, base_thickness, N):
+    Z_absorber = convert_epsilon_to_Z(epsilon_absorber)
+    y_values = np.linspace(0, height, num=N)
+    impedance_profile = linear(y_values, Z_AIR, Z_absorber, length=height)
+    filling_factors = convert_Z_to_alpha(impedance_profile, epsilon_absorber)
+
+    points = []
+    for i in range(1, N):
+        points.append((filling_factors[N-i] * thickness * 0.5, y_values[i] + base_thickness))
+    return y_values, impedance_profile, filling_factors, points
+
+def save_to_txt_file(points, filename="profile_points_linearv2.txt"):
+    with open(filename, "w") as file:
+        for x, y in points:
+            file.write(f"{3.00}\t{y:.2f}\t{x:.2f}\n")
+
+def curve_fit(filename, deg=4):
+    data = np.loadtxt(filename, delimiter='\t')
+    x = data[:, 0]
+    y = data[:, 1]
+    coefficients = np.polyfit(x, y, deg=deg)
+    polynomial = np.poly1d(coefficients)
+    print('Fitted equation:')
+    print(polynomial)
+    return x, y, polynomial
+
+def plot_all(y_values, impedance_profile, filling_factors, points, x, y, polynomial):
+    plt.figure(figsize=(18, 6))
+
+    plt.subplot(1, 3, 1)
+    plt.plot(y_values, impedance_profile, label='Impedance Profile')
+    plt.title('Impedance vs. Height')
+    plt.xlabel('Height (mm)')
+    plt.ylabel('Impedance (Ohms)')
+    plt.grid(True)
+    plt.legend()
+
+    plt.subplot(1, 3, 2)
+    plt.plot(y_values, filling_factors, label='Filling Factor', color='red')
+    plt.title('Filling Factor vs. Height')
+    plt.xlabel('Height (mm)')
+    plt.ylabel('Filling Factor')
+    plt.grid(True)
+    plt.legend()
+
+    plt.subplot(1, 3, 3)
+    x_vals, y_vals = zip(*points)
+    plt.plot(x_vals, y_vals, 'o-', linestyle='', label='Profile Shape')
+    plt.title('Profile Shape')
+    plt.xlabel('Width (mm)')
+    plt.ylabel('Height (mm)')
+    plt.grid(True)
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure()
+    xp = np.linspace(min(x), max(x), 100)
+    plt.plot(x, y, 'o', label='Original Data')
+    plt.plot(xp, polynomial(xp), '-', label='Fitted Curve')
+    plt.title('Polynomial Fit to Data Points')
+    plt.xlabel('X values')
+    plt.ylabel('Y values')
+    plt.legend()
+    plt.text(0.5,8,f'{polynomial}')
+    plt.show()
+
+if __name__ == "__main__":
+    epsilon_absorber = 5.131  # Example permittivity
+    thickness = 6.0  # Example thickness of unit cell
+    height = 9.0  # Example height of surface structures
+    base_thickness = 7.0  # Example base thickness
+    N = 36  # Example number of points
+
+    y_values, impedance_profile, filling_factors, points = generate_profile_points(epsilon_absorber, thickness, height, base_thickness, N)
+    save_to_txt_file(points)  # Save the profile points to a .txt file
+    x, y, polynomial = curve_fit("profile_points_linear.txt", deg=4)
+    plot_all(y_values, impedance_profile, filling_factors, points, x, y, polynomial)
